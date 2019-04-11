@@ -207,6 +207,12 @@
 
         // 封装点击添加边的交互
         G6.registerBehavior('click-add-edge', {
+          // getDefaultCfg: 返回配置的默认值，可以在graph中复写配置，在事件回调中用 this[defaultCfg] 获取配置。
+//          getDefaultCfg() {
+//            return {
+//              multiple: true
+//            };
+//          },
           getEvents() {
             return {
               'node:click': 'onClick' ,

@@ -3,57 +3,48 @@
     <!--logo-->
     <img src="../../assets/images/login-logo.png" class="app-login-logo">
     <div class="app-login-box">
-      <img src="../../assets/images/login-pic.png" class="login-left">
-      <div class="login-right">
-        <!--name-->
-        <div class="header">工控安全监测审计平台</div>
-        <!--login-form-->
-        <el-form ref="loginForm" :model="loginForm" label-width="0px">
-          <el-form-item label="">
-            <el-input v-model="loginForm.username" placeholder="输入用户名" @keyup.enter.native="submit" autofocus="true">
-              <i slot="prefix" class="icon iconfont icon-denglu"></i>
-            </el-input>
+      <!--name-->
+      <div class="header">网站监测平台</div>
+      <!--login-form-->
+      <el-form ref="loginForm" :model="loginForm" label-width="0px">
+        <el-form-item label="">
+          <el-input v-model="loginForm.username" placeholder="输入用户名" @keyup.enter.native="submit" autofocus="true">
+            <i slot="prefix" class="icon iconfont icon-denglu"></i>
+          </el-input>
+        </el-form-item>
+        <el-form-item label="">
+          <el-input v-model="loginForm.password" placeholder="输入密码" type="password" @keyup.enter.native="submit">
+            <i slot="prefix" class="icon iconfont icon-mima"></i>
+          </el-input>
+        </el-form-item>
+        <!--verification-->
+        <div class="verification">
+          <el-form-item label="" class="verification-input">
+            <el-input v-model="loginForm.captcha" placeholder="请输入验证码"
+                      type="text" @keyup.enter.native="submit"></el-input>
           </el-form-item>
-          <el-form-item label="">
-            <el-input v-model="loginForm.password" placeholder="输入密码" type="password" @keyup.enter.native="submit">
-              <i slot="prefix" class="icon iconfont icon-mima"></i>
-            </el-input>
-          </el-form-item>
-          <!--verification-->
-          <!--<div class="verification">-->
-            <!--<el-form-item label="" class="verification-input">-->
-              <!--<el-input v-model="loginForm.captcha" placeholder="请输入验证码"-->
-                        <!--type="text" @keyup.enter.native="submit"></el-input>-->
-            <!--</el-form-item>-->
-            <!--&lt;!&ndash;verificationcode&ndash;&gt;-->
-            <!--<div class="verification-code" @click="changeCaptcha">-->
-              <!--<img :src="captchaURL" @load="loadImg">-->
-            <!--</div>-->
-          <!--</div>-->
-          <el-form-item>
-            <el-button type="primary" class="app-loginin-btn" :loading="loading" @click="submit">登录</el-button>
-          </el-form-item>
-        </el-form>
-        <div class="rememberPassword">
-          <!--<el-checkbox v-model="rememberPassword">记住密码</el-checkbox>-->
-          <!--<a href="#" class="forget-password">忘记密码？</a>-->
+          <!--verificationcode-->
+          <div class="verification-code" @click="changeCaptcha">
+            <img :src="captchaURL" @load="loadImg">
+          </div>
         </div>
+        <el-form-item>
+          <el-button type="primary" class="app-loginin-btn" :loading="loading" @click="submit">登录</el-button>
+        </el-form-item>
+      </el-form>
+      <div class="rememberPassword">
+        <!--<el-checkbox v-model="rememberPassword">记住密码</el-checkbox>-->
+        <!--<a href="#" class="forget-password">忘记密码？</a>-->
+      </div>
 
-        <div class="warning" v-show="messageVisible">
-          {{message}}。请重试。如果总是不能登录，请<!--点击“忘记密码”或-->联系管理员。
-        </div>
+      <div class="warning" v-show="messageVisible">
+        {{message}}。请重试。如果总是不能登录，请<!--点击“忘记密码”或-->联系管理员。
       </div>
     </div>
   </div>
 </template>
 
 <script>
-  // @特殊处理, 全局的接口加密传输
-  window.appSecretKey = {
-    KEY: '',
-    IV: '',
-    UUID: ''
-  }
   import cryptoUtil from '@/lib/cryptoUtil'
   export default {
     name: "app",
@@ -64,7 +55,7 @@
         loginForm: {
           username: "",
           password: "",
-          // captcha: ""
+          captcha: ""
         },
         captchaURL: '/api/captcha?identify=' + Date.now(),
         repeatChangeCaptcha: false,
@@ -76,57 +67,48 @@
       };
     },
     methods: {
-      getSecretKey(ck) {
-        this.axios.post('/api/secretKey').then((response) => {
-          let d = response.data.data
-          // console.log(d.key, d.iv, d.uid, d.deathTime)
-          window.appSecretKey = {
-            KEY: d.key,
-            IV: d.iv,
-            UUID: d.uid
-          }
-          ck && ck()
-        }).catch(err => {
-          ck && ck()
-        })
-      },
       submit() {
-        // @特殊处理
-        let loginForm = JSON.parse(JSON.stringify(this.loginForm));
-        loginForm.password = cryptoUtil.encrypt(loginForm.password.trim())
+        // @特殊处理, 补充密码加密
+        let loginForm = JSON.stringify(this.loginForm);
+        loginForm = cryptoUtil.encrypt(loginForm)
         this.$post("/login", {
-          data: loginForm
+          data: {
+            "params": loginForm
+          }
         }).then(data => {
+          // @特殊处理, 如果发生错误, 刷新验证码
+          if (data.code !== 200) {
+            this.changeCaptcha()
+          }
           if (data.code === 500) {
             this.message = data.message;
             this.messageVisible = true;
           } else {
+
             this.$store.commit("user", data);
-            // 加密
-            this.getSecretKey(_ => {
-              // 取得权限
-              this.$post("/action", {
-                data: {
-                  "select": "sys_role",
-                  "where": "id=" + data.roleId,
-                  "join": ["sys_role_permission", "sys_permission"]
-                }
-              }).then(per => {
-                if (Array.isArray(per) && per.length > 0) {
-                  this.$store.commit("permission", per[0].sys_role_permission.sys_permission);
 
-                  // @特殊处理 session失效被阻止到登录页面, 需要返回最后的访问页面
-                  let before403Path = this.localStore.get("before_403_path");
-                  if (before403Path) {
-                    this.$router.push(before403Path);
-                    this.localStore.remove("before_403_path");
-                  } else {
-                    this.$router.push({name: 'main'});
-                  }
+            // 取得权限
+            this.$post("/action", {
+              data: {
+                "select": "sys_role",
+                "where": "id=" + data.roleId,
+                "join": ["sys_role_permission", "sys_permission"]
+              }
+            }).then(per => {
+              if (Array.isArray(per) && per.length > 0) {
+                this.$store.commit("permission", per[0].sys_role_permission.sys_permission);
 
+                // @特殊处理 session失效被阻止到登录页面, 需要返回最后的访问页面
+                let before403Path = this.localStore.get("before_403_path");
+                if (before403Path) {
+                  this.$router.push(before403Path);
+                  this.localStore.remove("before_403_path");
+                } else {
+                  this.$router.push('/main');
                 }
-              });
-            })
+
+              }
+            });
           }
         });
       },
@@ -166,34 +148,21 @@
   }
 
   .app-login .app-login-box {
-    width: 880px;
+    width: 440px;
     padding: 50px 60px;
-    background-color: #f5fbfc;
+    background-color: #ffffff;
     position: relative;
     top: 30%;
     transform: translateY(-10%);
     border-radius: 6px;
     margin: 0 auto;
-    overflow: hidden;
-    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
-  }
-
-  .app-login .app-login-box .login-left {
-    position: relative;
-    left: 0;
-    top: 36px;
-  }
-
-  .app-login .app-login-box .login-right {
-    width: 340px;
-    float: right;
   }
 
   .app-login .app-login-box .header {
-    font-size: 30px;
+    font-size: 24px;
     text-align: center;
     margin-bottom: 40px;
-    color: #333333;
+    color: #1b5b9e;
   }
 
   .app-login .app-login-box .verification {
@@ -232,15 +201,15 @@
     line-height: 40px;
     color: #a4a4a4;
     font-size: 14px;
-    padding-left: 47px;
+    padding-left: 40px;
   }
 
   .app-login .app-login-box .icon {
-    font-size: 18px;
+    font-size: 20px;
     line-height: 40px;
     color: #a3a3a3;
-    margin-left: 6px;
-    padding-right: 9px;
+    margin-left: 2px;
+    padding-right: 5px;
     border-right: 1px solid #e8e8e8;
   }
 
@@ -251,18 +220,11 @@
 
   .app-login .app-login-box .app-loginin-btn {
     width: 100%;
-    height: 46px;
-    font-size: 16px;
-    font-weight: 300;
-    background: linear-gradient(#11d0e1, #26c7e5);
+    height: 42px;
+    font-size: 14px;
+    background-color: #1b5b9e;
     margin: 11px 0px;
     border: none;
-    border-radius: 26px;
-    transition: background 0.6s linear;
-  }
-
-  .app-login .app-login-box .app-loginin-btn:hover {
-    background: linear-gradient(#11c3d3, #21b2cd);
   }
 
   .app-login .app-login-box .rememberPassword {
@@ -273,13 +235,11 @@
 
   .app-login .app-login-box .rememberPassword .forget-password {
     text-decoration: none;
-    color: #13cde0;
+    color: #3d9df4;
     font-size: 14px;
     position: absolute;
     top: 0;
     right: 0;
-    width: 100%;
-    text-align: center;
   }
 
   .app-login .app-login-box .warning {
